@@ -1,5 +1,5 @@
 import json
-from src.Socket import UDPSocket
+from pysocks.src.Socket import UDPSocket
 
 def printCatFacts(data):
 

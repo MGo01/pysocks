@@ -1,6 +1,7 @@
 import time
 import socket
-from socket_config import allowed_types
+from .socket_config import allowed_types
+from .message import Message, SerialMessage, FileMessage
 
 MILLISECONDS = 0.001
 
@@ -58,13 +59,12 @@ class Socket:
             self.send_socket = None
 
 
-    def _sendData(self, data, delayMS, encoding):
-        binaryData = data.encode(encoding)
+    def _sendData(self, byteString, delayMS):
         time.sleep(delayMS * MILLISECONDS)
-        self.send_socket.send(binaryData)
+        self.send_socket.send(byteString)
 
 
-    def stopSending(self, delayMS=10, encoding='utf-8'):
+    def stopSending(self, delayMS=10, encoding=None):
         finalMessage = '#DONE#'
         time.sleep(delayMS * MILLISECONDS)
         self.send_socket.send(finalMessage.encode(encoding))
@@ -74,23 +74,19 @@ class Socket:
         return data == '#DONE#'
 
 
-    def sendData(self, data=None, use_file=False, file_name=None, delayMS=10, encoding='utf-8') -> bytes:
+    def isMessage(self, data):
+        return isinstance(data, Message)
+
+
+    def sendData(self, data=None, delayMS=10):
         
         if self.send_socket is None:
             raise Exception('Null Sending Socket detected')
 
-        elif use_file and file_name is not None:
-            inputFile = open(file_name, 'r')
+        if not self.isMessage(data):
+            raise Exception('Data is not an instance of the Message class, use the Message class')
 
-            linesToRead = inputFile.readlines()
-            inputFile.close()
-
-            for line in linesToRead:
-                self._sendData(line, delayMS, encoding)
-
-            self.stopSending(delayMS, encoding)
-        else:
-            self._sendData(data, delayMS, encoding)
+        self._sendData(data.getMessage(), delayMS)
 
 
     def printDebugInfo(self, data):

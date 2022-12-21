@@ -1,7 +1,6 @@
 import json
-import yaml
 import base64
-from message_config import file_types, serial_types
+from .message_config import file_types, serial_types
 
 """
 Base class for all Messages
@@ -18,7 +17,9 @@ class Message:
 
         self.file_type = file_type
         self.serial_type = serial_type
+        self.encoding_type = encoding_type
         self.header = header
+        self.data = data
         self.payload = None
     
 
@@ -30,7 +31,7 @@ class Message:
         return serial_type in serial_types
 
 
-    def _createMessage(self):
+    def createMessage(self):
         pass
 
 
@@ -40,9 +41,36 @@ class Message:
         self.payload = None
         self.file_type = None
         self.serial_type = None
+    
+
+    def getMessage(self) -> bytes:
+        return self.payload
+
+    
+    def decodeMessage(self) -> any:
+        
+        if self.file_type is None:
+            raise Exception('Null file type detected in decodeMessage()')
+        
+        if self.serial_type is None:
+            raise Exception('Null serial type detected in decodeMessage()')
+        
+        if self.encoding_type is None:
+            raise Exception('Null encoding type detected in decodeMessage()')
+
+        if not isinstance(self.payload, bytes):
+            raise Exception('Payload must be a byte array before decoding')
+
+        if self.encoding_type == 'utf-8':
+            return self.payload.decode(self.encoding_type)
+
+        elif self.encoding_type == 'base64':
+            return base64.b64decode(self.payload)
+        else:
+            return self.payload.decode(self.encoding_type)
 
 
-    def printDebugInfo(self, data):
+    def printDebugInfo(self):
 
         debugString = (
             f"Debug String\n"
@@ -55,7 +83,7 @@ class Message:
 
 """
 Receieves a serialized message in the form
-of a dictionary and converts it into JSON or YAML
+of a dictionary and converts it into JSON
 """
 class SerialMessage(Message):
 
@@ -64,22 +92,26 @@ class SerialMessage(Message):
         if not self.isAllowedSerialType(serial_type):
             raise Exception(f"Serial type, {serial_type} not allowed")
         
-        if not isinstance(data, dict):
-            raise Exception(f"Incorrect Data type: {type(data)} not allowed, use a dictionary instead")
-        
         super().__init__(file_type, serial_type, data, encoding_type)
 
-    def _createMessage(self):
+    def createMessage(self, data):
+
+        if not isinstance(data, dict):
+            raise Exception(f"Incorrect Data type: {type(data)} not allowed, use a dictionary instead")
+
+        if self.data is None:
+            self.data = data
 
         encodedData = None
 
         if self.serial_type == 'json':
             encodedData = json.dumps(self.data).encode(self.encoding_type)
             self.payload = encodedData
-        
-        if self.serial_type == 'yml' or self.serial_type == 'yml':
-            encodedData = yaml.dumps(self.data).encode(self.encoding_type)
-            self.payload = encodedData
+    
+
+    def decodeMessage(self):
+        return super().decodeMessage()
+
 
 """
 Receieves the name of a file
@@ -101,7 +133,7 @@ class FileMessage(Message):
         super().__init__(file_type, serial_type, data, encoding_type)
 
 
-    def _createMessage(self):
+    def createMessage(self):
 
         encodedData = None
         inputFile = None
@@ -116,16 +148,6 @@ class FileMessage(Message):
             dataDict = json.load(inputFile)
             encodedData = json.dumps(dataDict).encode(self.encoding_type)
             self.payload = encodedData
-        
-        if self.file_type == 'yaml' or self.file_type == 'yml':
-            # Opening YML file
-            inputFile = open(self.file_name)
-            
-            # returns YML key, value pairs 
-            # as a dictionary
-            dataDict = yaml.safe_load(inputFile)
-            encodedData = yaml.dumps(dataDict).encode(self.encoding_type)
-            self.payload = encodedData
 
         if self.file_name != '':
             inputFile = open(self.file_name, 'rb')
@@ -137,3 +159,7 @@ class FileMessage(Message):
 
         self.header['length'] = len(encodedData)
         inputFile.close()
+
+
+    def decodeMessage(self):
+        return super().decodeMessage()

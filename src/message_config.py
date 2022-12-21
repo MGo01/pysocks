@@ -3,5 +3,5 @@ file_types = {
 }
 
 serial_types = {
-    'json', 'yaml', 'yml'
+    'json'
 }
