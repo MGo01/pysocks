@@ -1,21 +1,20 @@
 import json
 import base64
-from .message_config import file_types, serial_types
+import struct
+from .message_config import file_types, serial_types, format_char_types, byte_order_types
 
 """
 Base class for all Messages
 """
 class Message:
 
-    def __init__(self, file_type=None, serial_type=None, data=None, encoding_type='utf-8'):
+    def __init__(self, endianness, msg_format, serial_type=None, data=None, encoding_type='utf-8'):
 
         header = {}
-
-        header['file-type'] = file_type
         header['encoding-type'] = encoding_type
         header['serial-type'] = serial_type
+        header['']
 
-        self.file_type = file_type
         self.serial_type = serial_type
         self.encoding_type = encoding_type
         self.header = header
@@ -29,6 +28,14 @@ class Message:
     
     def isAllowedSerialType(self, serial_type: str) -> bool:
         return serial_type in serial_types
+
+
+    def isAllowedFormatCharType(self, format_char: str) -> bool:
+        return format_char in format_char_types
+    
+
+    def isAllowedByteOrderType(self, byte_order_type: str) -> bool:
+        return byte_order_type in byte_order_type
 
 
     def createMessage(self):
@@ -87,22 +94,18 @@ of a dictionary and converts it into JSON
 """
 class SerialMessage(Message):
 
-    def __init__(self, file_type=None, serial_type=None, data=None, encoding_type='utf-8'):
+    def __init__(self, data, serial_type=None, encoding_type='utf-8'):
         
         if not self.isAllowedSerialType(serial_type):
             raise Exception(f"Serial type, {serial_type} not allowed")
         
-        super().__init__(file_type, serial_type, data, encoding_type)
-
-    def createMessage(self, data):
-
         if not isinstance(data, dict):
             raise Exception(f"Incorrect Data type: {type(data)} not allowed, use a dictionary instead")
+        
+        super().__init__(serial_type, data, encoding_type)
 
-        if self.data is None:
-            self.data = data
 
-        encodedData = None
+    def createMessage(self):
 
         if self.serial_type == 'json':
             encodedData = json.dumps(self.data).encode(self.encoding_type)
@@ -119,18 +122,20 @@ and converts it into a base64 string
 """
 class FileMessage(Message):
 
-    def __init__(self, file_type=None, serial_type=None, data=None, file_name='', encoding_type='base64'):
+    def __init__(self, file_name, serial_type=None, data=None, encoding_type='base64'):
 
         if file_name.count('.') > 1:
             raise Exception(f"Too many periods in file name: {file_name}")
 
         trash, file_type  = file_name.split('.')
-        self.file_name = file_name
 
         if not self.isAllowedFileType(file_type):
             raise Exception(f"File type, {file_type} not allowed")
 
-        super().__init__(file_type, serial_type, data, encoding_type)
+        self.file_type = file_type
+        self.file_name = file_name
+
+        super().__init__(serial_type, data, encoding_type)
 
 
     def createMessage(self):
@@ -149,14 +154,13 @@ class FileMessage(Message):
             encodedData = json.dumps(dataDict).encode(self.encoding_type)
             self.payload = encodedData
 
-        if self.file_name != '':
+        elif self.file_name != '':
             inputFile = open(self.file_name, 'rb')
             file_content = inputFile.read()
 
             encodedData = base64.encodestring(file_content)
             self.payload = encodedData
         
-
         self.header['length'] = len(encodedData)
         inputFile.close()
 

@@ -61,7 +61,7 @@ class Socket:
 
     def _sendData(self, byteString, delayMS):
         time.sleep(delayMS * MILLISECONDS)
-        self.send_socket.send(byteString)
+        self.send_socket.sendall(byteString)
 
 
     def stopSending(self, delayMS=10, encoding=None):
@@ -106,7 +106,7 @@ class Socket:
 
         elif write_to_file and file_name is not None:
             chunk = None
-            outputFile = open(file_name, 'w')
+            outputFile = open(file_name, 'wb')
 
             while True:
                 chunk = self.recv_socket.recv(self.buffer_size)
@@ -178,12 +178,14 @@ class TCPSocket(Socket):
         else:
             self.recv_socket = self._createReceiverSocket()
             self.send_socket = self._createSenderSocket()
+        
+        self.listeners = listeners
     
 
     def _createReceiverSocket(self):
         recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         recv_socket.bind((self.bind_addr, self.recv_port))
-        recv_socket.listen(1)
+        recv_socket.listen(self.listeners)
 
         return recv_socket
 
